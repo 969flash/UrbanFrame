@@ -6,6 +6,7 @@ import Rhino.Geometry as geo
 import ghpythonlib.components as ghcomp
 import utils
 import importlib
+import scriptcontext as sc
 
 importlib.reload(utils)
 TOL = 5
@@ -52,36 +53,6 @@ class Node:
         return hash(self._key_from_point(self.point))
 
 
-class RoadNetwork:
-    def __init__(self):
-        self.nodes = []  # type: List[Node]
-        self.edges = []  # type: List[Edge]
-
-    def generate(self, road_data: List[Tuple[geo.Curve, float]]) -> None:
-        # 입력 정규화: 단일 커브 리스트 또는 (커브, 폭) 리스트 모두 허용
-        # 모든 커브 쌍의 교차점 수집
-        curves = [rd[0] for rd in road_data]
-        node_pts = utils.get_pts_from_crvs(curves)
-        self.edges = self._get_edges(road_data, node_pts)
-        for node_pt in node_pts:
-            node = Node(node_pt)
-            connected_edges = [e for e in self.edges if e.is_at(node)]
-            node.add_edges(connected_edges)
-            self.nodes.append(node)
-
-    def _get_edges(
-        self, road_data: List[Tuple[geo.Curve, float]], node_pts: List[geo.Point3d]
-    ) -> List[Edge]:
-        edges = []
-        for curve, width in road_data:
-            split_curves = utils.split_curve_at_pts(curve, node_pts)
-            for sc in split_curves:
-                edge = Edge(sc, width)
-                edges.append(edge)
-        self.edges = edges
-        return edges
-
-
 class Road:
     def __init__(self, region: geo.Curve, edge: Edge):
         self.region = region
@@ -95,20 +66,59 @@ class Junction:
         self.connected_roads = []  # type: List[Road]
 
 
-class RoadGenerator:
+class RoadNetwork:
     def __init__(self):
+        self.nodes = []  # type: List[Node]
+        self.edges = []  # type: List[Edge]
         self.roads = []  # type: List[Road]
         self.junctions = []  # type: List[Junction]
 
-    def generate(self, road_network: RoadNetwork) -> None:
+    def generate(self, road_data: List[Tuple[geo.Curve, float]]) -> None:
+        self.nodes, self.edges = self._get_node_and_edge(road_data)
+        self.roads, self.junctions = self._get_road_and_junction()
+
+    def _get_node_and_edge(
+        self, road_data: List[Tuple[geo.Curve, float]]
+    ) -> Tuple[List[Node], List[Edge]]:
+        # 입력 정규화: 단일 커브 리스트 또는 (커브, 폭) 리스트 모두 허용
+        # 모든 커브 쌍의 교차점 수집
+        curves = [rd[0] for rd in road_data]
+        node_pts = utils.get_pts_from_crvs(curves)
+        edges = self._get_edges(road_data, node_pts)
+        print("EDGE COUNT:", len(edges))
+
+        nodes = []
+        for node_pt in node_pts:
+            node = Node(node_pt)
+            connected_edges = [e for e in edges if e.is_at(node)]
+            node.add_edges(connected_edges)
+            print("EDGE COOUNT:", len(connected_edges))
+            nodes.append(node)
+
+        return nodes, edges
+
+    def _get_edges(
+        self, road_data: List[Tuple[geo.Curve, float]], node_pts: List[geo.Point3d]
+    ) -> List[Edge]:
+        edges = []
+        for curve, width in road_data:
+            pts_on_crv = [pt for pt in node_pts if utils.is_pt_on_crv(pt, curve)]
+
+            split_curves = utils.split_curve_at_pts(curve, pts_on_crv)
+            for split_curve in split_curves:
+                edge = Edge(split_curve, width)
+                edges.append(edge)
+        return edges
+
+    def _get_road_and_junction(self) -> Tuple[List[Road], List[Junction]]:
         junctions = []  # type: List[Junction]
-        for node in road_network.nodes:
+        for node in self.nodes:
             junction_region = self._get_junction_region(node)
             junction = Junction(junction_region, node)
             junctions.append(junction)
 
         roads = []  # type: List[Road]
-        for edge in road_network.edges:
+        for edge in self.edges:
             road_region = self._get_road_region(edge, junctions)
             road = Road(road_region, edge)
             roads.append(road)
@@ -117,10 +127,7 @@ class RoadGenerator:
             connected_roads = [r for r in roads if r.edge.is_at(junction.node)]
             junction.connected_roads = connected_roads
 
-        self.roads = roads
-        self.junctions = junctions
-
-        return self.roads, self.junctions
+        return roads, junctions
 
     def _get_junction_region(self, node: Node) -> geo.Curve:
         offset_crvs = []
@@ -135,22 +142,25 @@ class RoadGenerator:
         if not intersections:
             raise ValueError("No intersection found for junction region.")
 
-        return ghcomp.ConvexHull(intersections, geo.Plane.WorldXY).hull
+        result = ghcomp.ConvexHull(intersections, geo.Plane.WorldXY).hull
+
+        return result
 
     def _get_road_region(self, edge: Edge, junctions: List[Junction]) -> geo.Curve:
-        start_junction = next(
-            (j for j in junctions if j.node == edge.curve.PointAtStart), None
-        )
-        end_junction = next(
-            (j for j in junctions if j.node == edge.curve.PointAtEnd), None
-        )
+        junction_regions = []
+        # edge의 양 끝점에 있는 정션을 수집한다
+        for j in junctions:
+            if j.node == edge.curve.PointAtStart or j.node == edge.curve.PointAtEnd:
+                junction_regions.append(j.region)
 
         road_region = utils.offset_crv_outward(edge.curve, edge.width / 2)
         if len(road_region) != 1:
             raise ValueError("offset result wrong.")
 
-        diff_region = utils.get_difference_regions(
-            road_region, [start_junction.region, end_junction.region]
-        )
+        if not junction_regions:
+            return road_region[0]
+
+        print(road_region, junction_regions)
+        diff_region = utils.get_difference_regions(road_region, junction_regions, 0.5)
 
         return max(diff_region, key=lambda r: r.GetLength())

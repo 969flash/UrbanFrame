@@ -99,21 +99,10 @@ def get_pts_from_crv_crv(
     return [event.PointA for event in intersections]
 
 
-def get_pts_from_crvs(crvs: List[geo.Curve]) -> List[geo.Point3d]:
-    Event = collections.namedtuple("Event", "pt, param")
+def get_pts_from_crvs(crvs: List[geo.Curve], tol=TOL) -> List[geo.Point3d]:
     intersection = ghcomp.MultipleCurves(crvs)
 
-    events = []  # type: List[Event]
-    if not isinstance(intersection.points, list):
-        if intersection.index_a == 0:
-            events.append(Event(intersection.points, intersection.param_a))
-    else:
-        for pt, idx_a, _, param_a, _ in zip(*intersection):
-            if idx_a == 0:
-                events.append(Event(pt, param_a))
-
-    events.sort(key=attrgetter("param"))
-    return [event.pt for event in events]
+    return list(geo.Point3d.CullDuplicates(list(intersection.points), tol))
 
 
 def explode_curve(curve: geo.Curve) -> List[geo.Curve]:
@@ -221,6 +210,17 @@ def move_curve_endpoint(
         pts[-1] = target
 
     return geo.PolylineCurve(pts)
+
+
+def is_pt_on_crv(pt: geo.Point3d, crv: geo.Curve, tol: float = TOL) -> bool:
+    """점이 커브 위에 있는지 확인합니다."""
+    if not pt or not crv:
+        return False
+    _, param = crv.ClosestPoint(pt, tol)
+    if param is None:
+        return False
+    closest_pt = crv.PointAt(param)
+    return pt.DistanceTo(closest_pt) <= tol
 
 
 # ==============================================================================
@@ -466,6 +466,7 @@ class RegionBool:
 def get_difference_regions(
     regions_a: Union[List[geo.Curve], geo.Curve],
     regions_b: Union[List[geo.Curve], geo.Curve],
+    offset_tol: float = None,
 ) -> List[geo.Curve]:
     """주어진 두 영역 커브의 차집합을 구합니다.
     Args:
@@ -476,7 +477,12 @@ def get_difference_regions(
         차집합 결과 커브들
     """
 
-    return RegionBool.polyline_boolean_difference(regions_a, regions_b)
+    result = RegionBool().polyline_boolean_difference(regions_a, regions_b)
+    if offset_tol and result:
+        result = offset_regions_inward(result, offset_tol)
+        result = offset_regions_outward(result, offset_tol)
+
+    return result
 
 
 def get_union_regions(regions: List[geo.Curve] = None) -> List[geo.Curve]:

@@ -65,20 +65,24 @@ def snap_roads(road_data: List[Tuple[geo.Curve, float]], tol: float) -> List[geo
         return road_data
 
     road_data = snap_roads_crv(road_data, tol)
-    snaped_road_datas = snap_roads_pt(road_data, tol)
+    road_data = snap_roads_pt(road_data, tol)
 
-    return snaped_road_datas
+    return road_data
 
 
 if __name__ == "__main__":
     # inputs setting
     road_data = globals().get("road_data", [])
-
     road_data = snap_roads(road_data, tol=2)
     road_network = road_net.RoadNetwork()
     road_network.generate(road_data)
 
-    roads = [e.curve for e in road_network.edges]
+    edges = [e.curve for e in road_network.edges]
     nodes = [n.point for n in road_network.nodes]
-
-    print("RoadNetwork: {} roads, {} nodes".format(len(roads), len(nodes)))
+    roads = [r.region for r in road_network.roads]
+    junctions = [j.region for j in road_network.junctions]
+    print(
+        "RoadNetwork: {} edges, {} nodes, {} roads, {} junctions".format(
+            len(edges), len(nodes), len(roads), len(junctions)
+        )
+    )
