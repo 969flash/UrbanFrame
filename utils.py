@@ -93,7 +93,6 @@ def get_pts_from_crv_crv(
 ) -> List[geo.Point3d]:
     """두 커브 사이의 교차점을 계산합니다."""
     intersections = geo.Intersect.Intersection.CurveCurve(curve_a, curve_b, tol, tol)
-    print(intersections)
     if not intersections:
         return []
     return [event.PointA for event in intersections]

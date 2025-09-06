@@ -8,7 +8,23 @@ try:
     from typing import List
 except ImportError:
     pass
-import block_generator as bg
+import Rhino.Geometry as geo
+import units
+import utils
 import importlib
 
-importlib.reload(bg)
+importlib.reload(utils)
+importlib.reload(units)
+
+from units import Node, Edge, Road, Junction, RoadNetwork, Block
+
+
+class BlockGenerator:
+    def __init__(self):
+        pass
+
+    def generate(self, road_network: RoadNetwork) -> List[Block]:
+        """블록을 생성합니다."""
+        blocks = []
+        
+        return blocks
