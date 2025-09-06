@@ -2,6 +2,7 @@ try:
     from typing import List, Tuple
 except ImportError:
     pass
+import networkx as nx
 import Rhino.Geometry as geo
 import ghpythonlib.components as ghcomp
 import utils

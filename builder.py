@@ -1,4 +1,5 @@
 # -*- coding:utf-8 -*-
+# r: networkx
 try:
     from typing import List, Tuple
 except ImportError:
@@ -28,6 +29,7 @@ if __name__ == "__main__":
     nodes = [n.point for n in road_network.nodes]
     roads = [r.region for r in road_network.roads]
     junctions = [j.region for j in road_network.junctions]
+
     print(
         "RoadNetwork: {} edges, {} nodes, {} roads, {} junctions".format(
             len(edges), len(nodes), len(roads), len(junctions)

@@ -6,6 +6,7 @@ import Rhino.Geometry as geo
 import ghpythonlib.components as ghcomp
 import utils
 import importlib
+import networkx as nx
 import scriptcontext as sc
 
 importlib.reload(utils)
@@ -31,8 +32,9 @@ class Node:
     def add_edges(self, edges: List[Edge]) -> None:
         self.edges.extend(edges)
 
-    def _key_from_point(self, p: geo.Point3d):
-        """Quantize point to TOL-sized grid so equality and hashing align."""
+    @staticmethod
+    def point_to_key(p: geo.Point3d):
+        """Public: Quantize a point to TOL-sized grid for stable equality/hash."""
         q = TOL
         return (
             int(round(p.X / q)),
@@ -40,17 +42,22 @@ class Node:
             int(round(p.Z / q)),
         )
 
+    @property
+    def point_key(self):
+        """Public: Quantized key of this node's point."""
+        return Node.point_to_key(self.point)
+
     def __eq__(self, other):
         # Equal if the points fall into the same TOL-sized grid cell
         if isinstance(other, Node):
-            return self._key_from_point(self.point) == self._key_from_point(other.point)
+            return Node.point_to_key(self.point) == Node.point_to_key(other.point)
         if isinstance(other, geo.Point3d):
-            return self._key_from_point(self.point) == self._key_from_point(other)
+            return Node.point_to_key(self.point) == Node.point_to_key(other)
         return NotImplemented
 
     def __hash__(self):
         # Hash derived from the same quantized key used in __eq__
-        return hash(self._key_from_point(self.point))
+        return hash(Node.point_to_key(self.point))
 
 
 class Road:
@@ -78,6 +85,39 @@ class RoadNetwork:
         self.edges = edges
         self.roads = roads
         self.junctions = junctions
+
+        self.graph = self._get_graph()
+
+    def _get_graph(self):
+        G = nx.Graph()
+
+        # TOL 기반 좌표 양자화 키: Node.point_to_key / Node.point_key 재사용
+        key = Node.point_to_key
+        nodes_by_key = {n.point_key: n for n in self.nodes}
+
+        # 노드 추가 + 속성
+        for n in self.nodes:
+            G.add_node(n, point=n.point, degree=len(n.edges))
+
+        # 엣지 추가: 키 매핑 + 안전한 fallback
+        for e in self.edges:
+            n1 = nodes_by_key.get(key(e.curve.PointAtStart))
+            n2 = nodes_by_key.get(key(e.curve.PointAtEnd))
+            if not n1:
+                n1 = next((n for n in self.nodes if n == e.curve.PointAtStart), None)
+            if not n2:
+                n2 = next((n for n in self.nodes if n == e.curve.PointAtEnd), None)
+            if not n1 or not n2:
+                continue
+            G.add_edge(
+                n1,
+                n2,
+                object=e,
+                width=getattr(e, "width", None),
+                length=e.curve.GetLength() if e.curve else None,
+                curve=e.curve,
+            )
+        return G
 
 
 class Block:
