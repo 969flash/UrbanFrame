@@ -130,15 +130,20 @@ class RoadNetwork:
         return roads, junctions
 
     def _get_junction_region(self, node: Node) -> geo.Curve:
-        offset_crvs = []
 
+        node_circle = geo.Circle(
+            node.point, max(e.width for e in node.edges)
+        ).ToNurbsCurve()
+
+        intersections = []
         for edge in node.edges:
             offset_result = utils.offset_crv_outward(edge.curve, edge.width / 2)
             if not offset_result:
                 raise ValueError("Failed to offset road curve.")
-            offset_crvs.extend(offset_result)
+            for offset_crv in offset_result:
+                inter_pts = utils.get_pts_from_crv_crv(node_circle, offset_crv)
+                intersections.extend(inter_pts)
 
-        intersections = utils.get_pts_from_crvs(offset_crvs)
         if not intersections:
             raise ValueError("No intersection found for junction region.")
 
