@@ -120,8 +120,64 @@ class RoadNetwork:
         return G
 
 
+class BlockInfo:
+    """Configuration holder for initializing Block objects.
+
+    Attributes:
+        block_ids: List of target block ids this config applies to.
+        gfa: Floor area ratio (용적률).
+        bcr: Building coverage ratio (건폐율).
+        landuses: List of landuse labels.
+        pedestrian_width: Width of pedestrian zone (m).
+    """
+
+    def __init__(
+        self,
+        block_ids,  # type: List[int]
+        gfa=None,  # type: float
+        bcr=None,  # type: float
+        landuses=None,  # type: List[str]
+        pedestrian_width=None,  # type: float
+    ):
+        self.block_ids = block_ids
+        self.gfa = gfa
+        self.bcr = bcr
+        self.landuses = landuses
+        self.pedestrian_width = pedestrian_width
+
+
 class Block:
-    def __init__(self, region: geo.Curve):
+    def __init__(self, region: geo.Curve, block_id: int = None):
+        self.block_id = block_id
         self.region = region
+        self.buildable_region = region  # type: geo.Curve
         self.roads = []  # type: List[Road]
         self.junctions = []  # type: List[Junction]
+
+        # landuse/building defaults
+        self.landuses = []  # type: List[str]
+        self.gfa = 0.0  # 용적률
+        self.bcr = 0.0  # 건폐율
+        self.pedestrian_width = 0.0
+
+        # placeholders for downstream
+        self.pedestrian = []  # type: List[geo.Surface]
+        self.buildings = []  # type: List[Building]
+
+    def initialize(self, block_info: BlockInfo):
+        """block_info의 설정으로 블록 초기화."""
+        # gfa and bcr
+        self.gfa = block_info.gfa
+        self.bcr = block_info.bcr
+
+        # landuses
+        self.landuses = block_info.landuses
+
+        # pedestrian width
+        self.pedestrian_width = block_info.pedestrian_width
+
+        self.buildable_region = utils.offset_regions_inward(
+            self.region, self.pedestrian_width
+        )[0]
+
+        self.pedestrian = ghcomp.BoundarySurfaces([self.buildable_region, self.region])
