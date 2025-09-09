@@ -1,4 +1,5 @@
 # -*- coding:utf-8 -*-
+# r: networkx
 try:
     from typing import List, Tuple
 except ImportError:
@@ -21,15 +22,21 @@ if __name__ == "__main__":
     # inputs setting
     road_data = globals().get("road_data", [])
 
-    rdnetwork_generator = RoadNetworkGenerator()
-    road_network = rdnetwork_generator.generate(road_data)
+    road_network = RoadNetworkGenerator().generate(road_data)
+    blocks = BlockGenerator().generate(road_network)
 
+    ########################################################
+    ########################################################
+    ########################################################
+    # output
     edges = [e.curve for e in road_network.edges]
     nodes = [n.point for n in road_network.nodes]
     roads = [r.region for r in road_network.roads]
     junctions = [j.region for j in road_network.junctions]
+    block_regions = [b.region for b in blocks]
+
     print(
-        "RoadNetwork: {} edges, {} nodes, {} roads, {} junctions".format(
-            len(edges), len(nodes), len(roads), len(junctions)
+        "RoadNetwork: {} edges, {} nodes, {} roads, {} junctions, {} blocks".format(
+            len(edges), len(nodes), len(roads), len(junctions), len(blocks)
         )
     )

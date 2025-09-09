@@ -509,3 +509,26 @@ def get_union_regions(regions: List[geo.Curve] = None) -> List[geo.Curve]:
         union_result = [union_result]
 
     return union_result
+
+
+def get_regions_from_crvs(crvs: List[geo.Curve]) -> List[geo.Curve]:
+    """주어진 커브들로부터 닫힌 영역 커브들을 추출합니다.
+    Args:
+        crvs: 닫힌 영역을 형성하는 커브들
+    Returns:
+        닫힌 영역 커브들
+    """
+    if not crvs:
+        return []
+
+    boolean_regions = geo.Curve.CreateBooleanRegions(
+        crvs, geo.Plane.WorldXY, False, OP_TOL
+    )  # type: geo.CurveBooleanRegions
+
+    regions_count = boolean_regions.RegionCount
+
+    result_regions = []
+    for i in range(regions_count):
+        region_crvs = boolean_regions.RegionCurves(i)  # type: List[geo.Curve]
+        result_regions.extend(region_crvs)
+    return result_regions
