@@ -11,6 +11,7 @@ import scriptcontext as sc
 
 importlib.reload(utils)
 TOL = 5
+NODE_TOL = 0.5
 
 
 class Edge:
@@ -19,9 +20,7 @@ class Edge:
         self.width = width  # type: float
 
     def is_at(self, node: "Node") -> bool:
-        return (
-            self.curve.PointAtStart == node.point or self.curve.PointAtEnd == node.point
-        )
+        return node == self.curve.PointAtStart or node == self.curve.PointAtEnd
 
 
 class Node:
@@ -48,11 +47,11 @@ class Node:
         return Node.point_to_key(self.point)
 
     def __eq__(self, other):
-        # Equal if the points fall into the same TOL-sized grid cell
+        # Allow positional tolerance of NODE_TOL
         if isinstance(other, Node):
-            return Node.point_to_key(self.point) == Node.point_to_key(other.point)
+            return self.point.DistanceTo(other.point) <= NODE_TOL
         if isinstance(other, geo.Point3d):
-            return Node.point_to_key(self.point) == Node.point_to_key(other)
+            return self.point.DistanceTo(other) <= NODE_TOL
         return NotImplemented
 
     def __hash__(self):

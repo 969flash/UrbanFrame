@@ -105,6 +105,8 @@ class RoadNetworkGenerator:
         for node_pt in node_pts:
             node = Node(node_pt)
             connected_edges = [e for e in edges if e.is_at(node)]
+            if not connected_edges:
+                raise ValueError(f"No connected edges found for node at {node_pt}")
             node.add_edges(connected_edges)
             nodes.append(node)
 
@@ -179,6 +181,11 @@ class RoadNetworkGenerator:
         if not junction_regions:
             return road_region[0]
 
-        diff_region = utils.get_difference_regions(road_region, junction_regions, 0.5)
+        try:
+            diff_region = utils.get_difference_regions(
+                road_region, junction_regions, 0.5
+            )
+        except:
+            raise ValueError("도로크기에 비해 교차로가 너무 큽니다.")
 
         return max(diff_region, key=lambda r: r.GetLength())
