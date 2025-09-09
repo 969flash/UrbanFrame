@@ -26,13 +26,9 @@ if __name__ == "__main__":
         road_data = get_road_data.get_road_data_from_layer()
 
         print("Road data: {} roads".format(len(road_data)))
-
         road_network = RoadNetworkGenerator().generate(road_data)
         blocks = BlockGenerator().generate(road_network)
 
-        ########################################################
-        ########################################################
-        ########################################################
         # output
         edges = [e.curve for e in road_network.edges]
         nodes = [n.point for n in road_network.nodes]

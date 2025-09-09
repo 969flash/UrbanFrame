@@ -48,7 +48,7 @@ class BlockGenerator:
 
         blocks = []
         for i, r in enumerate(all_regions):
-            block = Block(r, block_id=i)
+            block = Block(r, block_id=i + 1)
             # 블록에 인접한 도로/교차로 찾기
             for road in road_network.roads:
                 if utils.has_intersection(r, road.region):
