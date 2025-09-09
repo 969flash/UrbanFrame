@@ -104,7 +104,7 @@ def get_pts_from_crvs(crvs: List[geo.Curve], tol=TOL) -> List[geo.Point3d]:
     return list(geo.Point3d.CullDuplicates(list(intersection.points), tol))
 
 
-def explode_curve(curve: geo.Curve) -> List[geo.Curve]:
+def explode_curve(curve: Union[geo.Curve, List[geo.Curve]]) -> List[geo.Curve]:
     """커브를 분할하여 개별 세그먼트(직선) 리스트로 반환합니다."""
     if not curve:
         return []
