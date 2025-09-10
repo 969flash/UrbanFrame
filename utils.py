@@ -202,6 +202,14 @@ def get_inside_check_pt(crv):
     return mesh.Faces.GetFaceCenter(0)
 
 
+def is_pt_inside(pt: geo.Point3d, crv: geo.Curve, tol: float = TOL) -> bool:
+    # -1: 일치, 0: 밖, 1: 안
+    result = ghcomp.ClipperComponents.PolylineContainment(
+        crv, pt, geo.Plane.WorldXY, tol
+    )
+    return result == 1
+
+
 def move_curve_endpoint(
     curve: geo.Curve, target: geo.Point3d, which: str = "start"
 ) -> geo.Curve:
