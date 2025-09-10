@@ -25,7 +25,8 @@ class RoadNetworkGenerator:
         """도로 네트워크를 생성합니다."""
 
         road_data = self.snap_roads(road_data, tol=2)
-        nodes, edges = self._get_node_and_edge(road_data)
+        nodes = self._get_nodes(road_data)
+        edges = self._get_edges_from_nodes(nodes)
         roads, junctions = self._get_road_and_junction(nodes, edges)
         road_network = RoadNetwork(roads, junctions, nodes, edges)
         return road_network
@@ -92,9 +93,55 @@ class RoadNetworkGenerator:
 
         return road_data
 
-    def _get_node_and_edge(
-        self, road_data: List[Tuple[geo.Curve, float]]
-    ) -> Tuple[List[Node], List[Edge]]:
+    def merge_edges_in_node(self, nodes: List[Node]) -> List[Node]:
+        """같은 폭의 도로 2개만 연결된 노드를 없애고 엣지를 병합합니다."""
+        # TODO: 인접노드 병합 기능도
+
+        nearby_node_groups = []
+        for node in nodes:
+            if any(node in group for group in nearby_node_groups):
+                continue
+
+            nearby_nodes = [
+                n
+                for n in nodes
+                if n != node and n.point.DistanceTo(node.point) < TOL * 2
+            ]
+            if nearby_nodes:
+                nearby_node_groups.append([node] + nearby_nodes)
+
+        merged_edges = []  # type: List[Edge]
+        edges_to_remove = []  # type: List[Edge]
+        nodes_to_remove = []  # type: List[Node]
+        result_nodes = []
+
+        for node in nodes:
+            if len(node.edges) != 2:
+                continue
+
+            e1, e2 = node.edges
+            if e1.width != e2.width:
+                continue
+            merged_crv = list(geo.Curve.JoinCurves([e1.curve, e2.curve]))[0]
+            new_edge = Edge(merged_crv, e1.width)
+            merged_edges.append(new_edge)
+            edges_to_remove.extend([e1, e2])
+            nodes_to_remove.append(node)
+
+        for node in nodes:
+            if node in nodes_to_remove:
+                continue
+
+            node.edges = [e for e in node.edges if e not in edges_to_remove]
+
+            for edge in merged_edges:
+                if edge.is_at(node):
+                    node.add_edges([edge])
+            result_nodes.append(node)
+
+        return result_nodes
+
+    def _get_nodes(self, road_data: List[Tuple[geo.Curve, float]]) -> List[Node]:
         # 입력 정규화: 단일 커브 리스트 또는 (커브, 폭) 리스트 모두 허용
         # 모든 커브 쌍의 교차점 수집
         curves = [rd[0] for rd in road_data]
@@ -110,7 +157,9 @@ class RoadNetworkGenerator:
             node.add_edges(connected_edges)
             nodes.append(node)
 
-        return nodes, edges
+        nodes = self.merge_edges_in_node(nodes)
+
+        return nodes
 
     def _get_edges(
         self, road_data: List[Tuple[geo.Curve, float]], node_pts: List[geo.Point3d]
@@ -123,6 +172,13 @@ class RoadNetworkGenerator:
             for split_curve in split_curves:
                 edge = Edge(split_curve, width)
                 edges.append(edge)
+        return edges
+
+    def _get_edges_from_nodes(self, nodes: List[Node]) -> List[Edge]:
+        edges = []
+        for node in nodes:
+            edges.extend(node.edges)
+        edges = list(set(edges))
         return edges
 
     def _get_road_and_junction(

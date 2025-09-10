@@ -41,11 +41,6 @@ class Node:
             int(round(p.Z / q)),
         )
 
-    @property
-    def point_key(self):
-        """Public: Quantized key of this node's point."""
-        return Node.point_to_key(self.point)
-
     def __eq__(self, other):
         # Allow positional tolerance of NODE_TOL
         if isinstance(other, Node):
@@ -92,7 +87,7 @@ class RoadNetwork:
 
         # TOL 기반 좌표 양자화 키: Node.point_to_key / Node.point_key 재사용
         key = Node.point_to_key
-        nodes_by_key = {n.point_key: n for n in self.nodes}
+        nodes_by_key = {n.point_to_key(): n for n in self.nodes}
 
         # 노드 추가 + 속성
         for n in self.nodes:

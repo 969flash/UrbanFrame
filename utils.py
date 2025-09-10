@@ -195,6 +195,13 @@ def split_curve_at_pts(
     return split_curves if split_curves else [curve]
 
 
+def get_inside_check_pt(crv):
+    """crv 내부의 임의점"""
+    _, ply = crv.TryGetPolyline()
+    mesh = geo.Mesh.CreateFromClosedPolyline(ply)
+    return mesh.Faces.GetFaceCenter(0)
+
+
 def move_curve_endpoint(
     curve: geo.Curve, target: geo.Point3d, which: str = "start"
 ) -> geo.Curve:
